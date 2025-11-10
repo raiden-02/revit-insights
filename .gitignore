@@ -259,3 +259,5 @@ out/
 *.exe
 *.out
 *.app
+
+.vscode/

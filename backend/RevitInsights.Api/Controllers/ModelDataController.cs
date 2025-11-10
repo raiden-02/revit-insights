@@ -24,7 +24,6 @@ namespace RevitInsights.Api.Controllers
 
             _db.Summaries.Add(dto);
             await _db.SaveChangesAsync();
-
             return Ok(new { dto.Id });
         }
 

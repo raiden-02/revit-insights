@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -12,10 +13,11 @@ builder.Services.AddCors(opt =>
     opt.AddPolicy("frontend", p => p
         .WithOrigins("http://localhost:5173")
         .AllowAnyHeader()
-        .AllowAnyMethod());
+        .AllowAnyMethod()
+    );
 });
 
-// EF Core Sqlite
+// EF Core Sqlite (db file lives next to the exe at runtime)
 builder.Services.AddDbContext<AppDb>(opt =>
     opt.UseSqlite($"Data Source={Path.Combine(AppContext.BaseDirectory, "revitinsights.db")}"));
 
@@ -29,7 +31,7 @@ app.Run();
 
 public class AppDb : DbContext
 {
-    public AppDb(DbContextOptions<AppDb> o) : base(o) { }
+    public AppDb(DbContextOptions<AppDb> options) : base(options) { }
     public DbSet<ModelSummary> Summaries => Set<ModelSummary>();
 }
 
