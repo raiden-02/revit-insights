@@ -1,0 +1,1 @@
+export type Props = { data: { name: string; count: number }[] };

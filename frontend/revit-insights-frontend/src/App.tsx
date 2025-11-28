@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
-
+import CategoryBarChart from './components/CategoryBarChart'
+import Category3D from './components/Category3D'
 const qc = new QueryClient()
 
 function useLatest() {
@@ -30,7 +31,16 @@ function AppInner() {
           </div>
         )}
       </div>
-      <div className="card">3D/Charts placeholder</div>
+
+      <div className="card">
+        <h2 className="text-xl font-semibold mb-2">Elements by Category</h2>
+        {data ? <CategoryBarChart data={data.categories} /> : <div className="text-slate-500">No data yet — export from Revit.</div>}
+      </div>
+
+      <div className="card">
+        <h2 className="text-xl font-semibold mb-2">3D Category Bars</h2>
+        {data ? <Category3D data={data.categories} /> : <div className="text-slate-500">No data yet — export from Revit.</div>}
+      </div>
     </div>
   )
 }
