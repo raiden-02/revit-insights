@@ -17,7 +17,32 @@ namespace RevitInsights.Addin
                 "RevitInsights.Addin.ExportCommand"
             );
 
-            panel.AddItem(btn);
+            // Button for export summary
+            var exportBtnData = new PushButtonData(
+                "ExportSummary",
+                "Export Summary",
+                asmPath,
+                "RevitInsights.Addin.ExportCommand"
+            )
+            {
+                ToolTip = "Export model analytics (categories, counts) to the Revit Insights dashboard."
+            };
+
+            panel.AddItem(exportBtnData);
+
+            // Button for generate column grid
+            var genGridBtnData = new PushButtonData(
+                "GenerateColumnGrid",
+                "Generate Column Grid",
+                asmPath,
+                "RevitInsights.Addin.GenerateColumnGridCommand"
+            )
+            {
+                ToolTip = "Procedurally generate a column grid on the active level based on plan extents."
+            };
+
+            panel.AddItem(genGridBtnData);
+
             return Result.Succeeded;
         }
 
