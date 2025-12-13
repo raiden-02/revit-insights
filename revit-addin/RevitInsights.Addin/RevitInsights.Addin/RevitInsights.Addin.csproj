@@ -52,7 +52,9 @@
   <ItemGroup>
     <Compile Include="App.cs" />
     <Compile Include="ExportCommand.cs" />
+    <Compile Include="ExportGeometryCommand.cs" />
     <Compile Include="GenerateColumnGridCommand.cs" />
+    <Compile Include="GenerateMassingCommand.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
