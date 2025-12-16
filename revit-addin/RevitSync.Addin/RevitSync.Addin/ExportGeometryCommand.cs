@@ -17,7 +17,7 @@ namespace RevitSync.Addin
             BaseAddress = new Uri("http://localhost:5245/")
         };
 
-         private class GeometryPrimitiveDto
+        private class GeometryPrimitiveDto
         {
             public string Category { get; set; } = "";
             public double CenterX { get; set; }
@@ -40,23 +40,26 @@ namespace RevitSync.Addin
             UIDocument uidoc = data.Application.ActiveUIDocument;
             Document doc = uidoc?.Document;
 
-            if (doc == null) {
+            if (doc == null)
+            {
                 message = "No active document.";
                 return Result.Failed;
             }
 
+            // Set ActiveProjectName so poller can use project-specific dequeue
+            AppState.ActiveProjectName = doc.Title;
+
             View view = uidoc.ActiveView;
             string projectName = doc.Title;
 
-            // Categories to stream as boxes
             var categoriesToInclude = new[]
             {
                 BuiltInCategory.OST_Walls,
                 BuiltInCategory.OST_StructuralColumns,
                 BuiltInCategory.OST_Floors,
+                BuiltInCategory.OST_GenericModel, // DirectShapes created from web
             };
 
-            // Collect elements and build bounding box primitives
             var primitives = new List<GeometryPrimitiveDto>();
 
             foreach (BuiltInCategory bic in categoriesToInclude)
@@ -66,20 +69,17 @@ namespace RevitSync.Addin
                 var collector = new FilteredElementCollector(doc, view.Id)
                     .OfCategory(bic)
                     .WhereElementIsNotElementType();
-                
+
                 foreach (var element in collector)
                 {
                     BoundingBoxXYZ bbox = element.get_BoundingBox(view) ?? element.get_BoundingBox(null);
-                    if(bbox == null) continue;
+                    if (bbox == null) continue;
 
-                    // BoundingBoxXYZ can carry a Transform (rotation/translation).
-                    // Min/Max are in the box's local coords, so we must transform the 8 corners to get a world AABB.
                     XYZ min;
                     XYZ max;
                     if (!TryGetWorldAabb(bbox, out min, out max))
                         continue;
 
-                    // Skip degenerate boxes (zero size)
                     if (min == null || max == null) continue;
 
                     double sizeX = max.X - min.X;
@@ -134,7 +134,7 @@ namespace RevitSync.Addin
                 "RevitSync",
                 $"Exported {primitives.Count} geometry primitives for project '{projectName}'."
             );
-            
+
             return Result.Succeeded;
         }
 

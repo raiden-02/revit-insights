@@ -54,6 +54,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="App.cs" />
+    <Compile Include="ApplyCommandHandler.cs" />
+    <Compile Include="AppState.cs" />
+    <Compile Include="CommandModels.cs" />
+    <Compile Include="CommandPoller.cs" />
     <Compile Include="ExportGeometryCommand.cs" />
     <Compile Include="GenerateColumnGridCommand.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

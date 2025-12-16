@@ -22,6 +22,8 @@ namespace RevitSync.Addin
                 return Result.Failed;
             }
 
+            AppState.ActiveProjectName = doc.Title;
+
             View activeView = uidoc.ActiveView;
 
             // 1) Determine level to place columns on
