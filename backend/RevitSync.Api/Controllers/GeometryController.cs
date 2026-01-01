@@ -48,24 +48,51 @@ namespace RevitSync.Api.Controllers
         [HttpGet("latest")]
         public IActionResult Latest([FromQuery] string? projectName = null)
         {
+            GeometrySnapshotDto? snapshot = null;
+
             // If a projectName is provided, return latest snapshot for that project.
             if (!string.IsNullOrWhiteSpace(projectName))
             {
-                if (_latestByProject.TryGetValue(projectName, out var snapshot))
-                    return Ok(snapshot);
+                if (!_latestByProject.TryGetValue(projectName, out snapshot))
+                    return NotFound("No geometry snapshot for this project yet.");
+            }
+            else
+            {
+                // Otherwise return latest snapshot across all projects.
+                if (_latestByProject.Count == 0)
+                    return NotFound("No geometry snapshots yet.");
 
-                return NotFound("No geometry snapshot for this project yet.");
+                snapshot = _latestByProject.Values
+                    .OrderByDescending(s => s.TimestampUtc)
+                    .FirstOrDefault();
+
+                if (snapshot == null)
+                    return NotFound("No geometry snapshots yet.");
             }
 
-            // Otherwise return latest snapshot across all projects.
-            if (_latestByProject.Count == 0)
-                return NotFound("No geometry snapshots yet.");
+            // Compute ETag from ProjectName, TimestampUtc.Ticks, and Primitives.Count
+            var etag = ComputeETag(snapshot);
 
-            var latest = _latestByProject.Values
-                .OrderByDescending(s => s.TimestampUtc)
-                .FirstOrDefault();
+            // Check If-None-Match header for conditional GET
+            var ifNoneMatch = Request.Headers.IfNoneMatch.FirstOrDefault();
+            if (!string.IsNullOrEmpty(ifNoneMatch) && ifNoneMatch == etag)
+            {
+                return StatusCode(304); // Not Modified
+            }
 
-            return latest == null ? NotFound("No geometry snapshots yet.") : Ok(latest);
+            Response.Headers.ETag = etag;
+            return Ok(snapshot);
+        }
+
+        private static string ComputeETag(GeometrySnapshotDto snapshot)
+        {
+            // Combine ProjectName, TimestampUtc.Ticks, and Primitives.Count into a hash
+            var raw = $"{snapshot.ProjectName}:{snapshot.TimestampUtc.Ticks}:{snapshot.Primitives?.Count ?? 0}";
+            
+            var hash = raw.GetHashCode();
+            
+            // ETag must be wrapped in quotes per HTTP spec
+            return $"\"{hash:X8}\"";
         }
     }
 }

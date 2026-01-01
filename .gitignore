@@ -261,3 +261,5 @@ out/
 *.app
 
 .vscode/
+
+docs/
