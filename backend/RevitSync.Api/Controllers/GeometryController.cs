@@ -21,6 +21,9 @@ namespace RevitSync.Api.Controllers
             public double SizeX { get; set; }
             public double SizeY { get; set; }
             public double SizeZ { get; set; }
+            
+            // Element properties extracted from Revit
+            public Dictionary<string, string> Properties { get; set; } = new();
         }
 
         public class GeometrySnapshotDto

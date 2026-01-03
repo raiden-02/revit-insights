@@ -6,6 +6,112 @@ import { ViewCube, type ViewPreset } from "./ViewCube";
 import { CameraControls, type SceneBounds } from "./CameraControls";
 import { useEnqueueCommand } from "../hooks/useEnqueueCommand";
 
+// Properties Panel - displays Revit element properties when selected
+function PropertiesPanel({ primitive, onClose }: { primitive: GeometryPrimitive; onClose: () => void }) {
+  const properties = primitive.properties ?? {};
+  const hasProperties = Object.keys(properties).length > 0;
+
+  // Group properties by type
+  const identityProps = ["Name", "Family", "Type", "Mark"];
+  const locationProps = ["Level", "Base Offset", "Top Offset", "Height Offset", "Unconnected Height"];
+  const geometryProps = ["Length", "Area", "Volume"];
+  const phaseProps = ["Phase Created", "Phase Demolished", "Workset"];
+
+  const renderPropertyGroup = (title: string, keys: string[]) => {
+    const entries = keys.filter(k => properties[k]).map(k => [k, properties[k]] as const);
+    if (entries.length === 0) return null;
+    return (
+      <div className="mb-3">
+        <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">{title}</div>
+        {entries.map(([key, value]) => (
+          <div key={key} className="flex justify-between py-0.5 border-b border-slate-800">
+            <span className="text-slate-400 text-xs">{key}</span>
+            <span className="text-slate-100 text-xs font-medium truncate ml-2 max-w-[150px]" title={value}>{value}</span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // Any properties not in the above groups
+  const otherKeys = Object.keys(properties).filter(
+    k => ![...identityProps, ...locationProps, ...geometryProps, ...phaseProps].includes(k)
+  );
+
+  return (
+    <div className="absolute right-4 bottom-4 z-10 w-[280px] max-h-[60vh] overflow-y-auto rounded-xl bg-slate-950/90 backdrop-blur border border-slate-700 shadow-2xl">
+      {/* Header */}
+      <div className="sticky top-0 bg-slate-900 px-3 py-2 border-b border-slate-700 flex items-center justify-between">
+        <div>
+          <div className="text-sm font-semibold text-slate-100">Element Properties</div>
+          <div className="text-[11px] text-slate-400">ID: {primitive.elementId}</div>
+        </div>
+        <button
+          onClick={onClose}
+          className="text-slate-400 hover:text-slate-100 p-1 rounded hover:bg-slate-700 transition-colors"
+          title="Close"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="px-3 py-2">
+        {/* Category Badge */}
+        <div className="mb-3">
+          <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-medium ${
+            primitive.isWebCreated 
+              ? "bg-purple-900/50 text-purple-300 border border-purple-700" 
+              : "bg-blue-900/50 text-blue-300 border border-blue-700"
+          }`}>
+            {primitive.isWebCreated ? "Web Created" : primitive.category}
+          </span>
+        </div>
+
+        {hasProperties ? (
+          <>
+            {renderPropertyGroup("Identity", identityProps)}
+            {renderPropertyGroup("Location", locationProps)}
+            {renderPropertyGroup("Geometry", geometryProps)}
+            {renderPropertyGroup("Phase & Workset", phaseProps)}
+            {otherKeys.length > 0 && renderPropertyGroup("Other", otherKeys)}
+          </>
+        ) : (
+          <div className="text-slate-500 text-xs italic py-4 text-center">
+            {primitive.isWebCreated 
+              ? "Web-created elements have no Revit properties" 
+              : "No properties available"}
+          </div>
+        )}
+
+        {/* Bounding Box Info */}
+        <div className="mt-3 pt-3 border-t border-slate-700">
+          <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Bounding Box (feet)</div>
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            <div className="text-center">
+              <div className="text-slate-500">X</div>
+              <div className="text-slate-300">{primitive.sizeX.toFixed(2)}</div>
+            </div>
+            <div className="text-center">
+              <div className="text-slate-500">Y</div>
+              <div className="text-slate-300">{primitive.sizeY.toFixed(2)}</div>
+            </div>
+            <div className="text-center">
+              <div className="text-slate-500">Z</div>
+              <div className="text-slate-300">{primitive.sizeZ.toFixed(2)}</div>
+            </div>
+          </div>
+          <div className="text-[10px] text-slate-500 mt-1 text-center">
+            Center: ({primitive.centerX.toFixed(1)}, {primitive.centerY.toFixed(1)}, {primitive.centerZ.toFixed(1)})
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export type GeometryPrimitive = {
   category: string;
   elementId?: string;
@@ -16,6 +122,7 @@ export type GeometryPrimitive = {
   sizeX: number;
   sizeY: number;
   sizeZ: number;
+  properties?: Record<string, string>;
 };
 
 export type GeometrySnapshot = {
@@ -303,6 +410,14 @@ export function LiveGeometryView({ snapshot }: { snapshot: GeometrySnapshot }) {
       <div className="absolute right-4 top-4 z-10">
         <ViewCube onSelect={(p) => { setViewPreset(p); setPresetNonce((n) => n + 1); }} />
       </div>
+
+      {/* Properties Panel - shows when element is selected */}
+      {selectedPrimitive && (
+        <PropertiesPanel 
+          primitive={selectedPrimitive} 
+          onClose={() => { setSelectedElementId(null); setSelectedMesh(null); }} 
+        />
+      )}
 
       <Canvas
         shadows

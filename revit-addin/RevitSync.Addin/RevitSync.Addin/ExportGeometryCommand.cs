@@ -28,6 +28,9 @@ namespace RevitSync.Addin
             public double SizeX { get; set; }
             public double SizeY { get; set; }
             public double SizeZ { get; set; }
+            
+            // Element properties extracted from Revit
+            public Dictionary<string, string> Properties { get; set; } = new Dictionary<string, string>();
         }
 
         private class GeometrySnapshotDto
@@ -102,6 +105,8 @@ namespace RevitSync.Addin
                         isWebCreated = true;
                     }
 
+                    var properties = ExtractElementProperties(doc, element);
+
                     primitives.Add(new GeometryPrimitiveDto
                     {
                         Category = catName,
@@ -113,6 +118,7 @@ namespace RevitSync.Addin
                         SizeX = sizeX,
                         SizeY = sizeY,
                         SizeZ = sizeZ,
+                        Properties = properties,
                     });
                 }
             }
@@ -148,6 +154,143 @@ namespace RevitSync.Addin
             );
 
             return Result.Succeeded;
+        }
+
+        /// Extracts key properties from a Revit element.
+        private static Dictionary<string, string> ExtractElementProperties(Document doc, Element element)
+        {
+            var props = new Dictionary<string, string>();
+
+            try
+            {
+                // 1. Element Name (every element has this)
+                props["Name"] = element.Name ?? "";
+
+                // 2. Family and Type for FamilyInstance elements (Columns, Furniture, etc.)
+                var fi = element as FamilyInstance;
+                if (fi != null && fi.Symbol != null)
+                {
+                    props["Family"] = fi.Symbol.Family?.Name ?? "";
+                    props["Type"] = fi.Symbol.Name ?? "";
+                }
+                else
+                {
+                    // For system families (Walls, Floors), get Type from GetTypeId()
+                    var typeId = element.GetTypeId();
+                    if (typeId != null && typeId != ElementId.InvalidElementId)
+                    {
+                        var typeElem = doc.GetElement(typeId);
+                        if (typeElem != null)
+                        {
+                            props["Type"] = typeElem.Name ?? "";
+                        }
+                    }
+                }
+
+                // 3. Level - resolve from BuiltInParameter.LEVEL_PARAM or INSTANCE_SCHEDULE_ONLY_LEVEL_PARAM
+                var levelParam = element.get_Parameter(BuiltInParameter.LEVEL_PARAM)
+                              ?? element.get_Parameter(BuiltInParameter.INSTANCE_SCHEDULE_ONLY_LEVEL_PARAM)
+                              ?? element.get_Parameter(BuiltInParameter.FAMILY_LEVEL_PARAM);
+                if (levelParam != null && levelParam.HasValue)
+                {
+                    var levelId = levelParam.AsElementId();
+                    if (levelId != null && levelId != ElementId.InvalidElementId)
+                    {
+                        var level = doc.GetElement(levelId) as Level;
+                        if (level != null)
+                        {
+                            props["Level"] = level.Name;
+                        }
+                    }
+                }
+
+                // 4. Key Built-in Parameters with formatted display values
+                AddParameterIfExists(props, element, BuiltInParameter.ALL_MODEL_MARK, "Mark");
+                AddParameterIfExists(props, element, BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS, "Comments");
+                
+                // Geometry parameters (Length, Area, Volume)
+                AddParameterIfExists(props, element, BuiltInParameter.CURVE_ELEM_LENGTH, "Length");
+                AddParameterIfExists(props, element, BuiltInParameter.HOST_AREA_COMPUTED, "Area");
+                AddParameterIfExists(props, element, BuiltInParameter.HOST_VOLUME_COMPUTED, "Volume");
+                
+                // Wall-specific
+                AddParameterIfExists(props, element, BuiltInParameter.WALL_BASE_OFFSET, "Base Offset");
+                AddParameterIfExists(props, element, BuiltInParameter.WALL_TOP_OFFSET, "Top Offset");
+                AddParameterIfExists(props, element, BuiltInParameter.WALL_USER_HEIGHT_PARAM, "Unconnected Height");
+                
+                // Column-specific
+                AddParameterIfExists(props, element, BuiltInParameter.FAMILY_BASE_LEVEL_OFFSET_PARAM, "Base Offset");
+                AddParameterIfExists(props, element, BuiltInParameter.FAMILY_TOP_LEVEL_OFFSET_PARAM, "Top Offset");
+                
+                // Floor-specific
+                AddParameterIfExists(props, element, BuiltInParameter.FLOOR_HEIGHTABOVELEVEL_PARAM, "Height Offset");
+
+                // 5. Phase (Created / Demolished)
+                AddParameterIfExists(props, element, BuiltInParameter.PHASE_CREATED, "Phase Created");
+                AddParameterIfExists(props, element, BuiltInParameter.PHASE_DEMOLISHED, "Phase Demolished");
+
+                // 6. Workset (for workshared projects)
+                if (doc.IsWorkshared)
+                {
+                    var worksetParam = element.get_Parameter(BuiltInParameter.ELEM_PARTITION_PARAM);
+                    if (worksetParam != null && worksetParam.HasValue)
+                    {
+                        var worksetId = worksetParam.AsInteger();
+                        var workset = doc.GetWorksetTable().GetWorkset(new WorksetId(worksetId));
+                        if (workset != null)
+                        {
+                            props["Workset"] = workset.Name;
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // Swallow errors - property extraction should not fail export
+            }
+
+            return props;
+        }
+
+        /// Helper to add a BuiltInParameter value if it exists and has a value.
+        private static void AddParameterIfExists(Dictionary<string, string> props, Element element, BuiltInParameter bip, string displayName)
+        {
+            try
+            {
+                var param = element.get_Parameter(bip);
+                if (param == null || !param.HasValue) return;
+
+                var value = param.AsValueString();
+                
+                // Fallback to raw value if AsValueString is empty
+                if (string.IsNullOrEmpty(value))
+                {
+                    switch (param.StorageType)
+                    {
+                        case StorageType.String:
+                            value = param.AsString();
+                            break;
+                        case StorageType.Integer:
+                            value = param.AsInteger().ToString();
+                            break;
+                        case StorageType.Double:
+                            value = param.AsDouble().ToString("F2");
+                            break;
+                        case StorageType.ElementId:
+                            value = param.AsElementId()?.ToString() ?? "";
+                            break;
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(value))
+                {
+                    props[displayName] = value;
+                }
+            }
+            catch
+            {
+                // Ignore parameter extraction errors
+            }
         }
 
         private static bool TryGetWorldAabb(BoundingBoxXYZ bbox, out XYZ minWorld, out XYZ maxWorld)
