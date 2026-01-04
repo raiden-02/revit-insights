@@ -9,8 +9,6 @@ using System.Text;
 
 namespace RevitSync.Addin
 {
-    //Shared geometry export logic used by both manual ExportGeometryCommand 
-    //and automatic DocumentChanged-triggered export.
     public static class GeometryExporter
     {
         private static readonly HttpClient _http = new HttpClient
@@ -24,6 +22,7 @@ namespace RevitSync.Addin
             public string Category { get; set; } = "";
             public string ElementId { get; set; } = "";
             public bool IsWebCreated { get; set; } = false;
+            public string Color { get; set; } = "#e5e7eb"; // Hex color per category
             public double CenterX { get; set; }
             public double CenterY { get; set; }
             public double CenterZ { get; set; }
@@ -32,6 +31,23 @@ namespace RevitSync.Addin
             public double SizeZ { get; set; }
             public Dictionary<string, string> Properties { get; set; } = new Dictionary<string, string>();
         }
+
+        private static readonly Dictionary<BuiltInCategory, string> CategoryColors = new Dictionary<BuiltInCategory, string>
+        {
+            { BuiltInCategory.OST_Walls, "#4ade80" },              // Green - walls
+            { BuiltInCategory.OST_Roofs, "#f97316" },              // Orange - roofs
+            { BuiltInCategory.OST_Floors, "#94a3b8" },             // Slate gray - floors
+            { BuiltInCategory.OST_StructuralColumns, "#60a5fa" },  // Blue - columns
+            { BuiltInCategory.OST_StructuralFraming, "#a78bfa" },  // Purple - beams/framing
+            { BuiltInCategory.OST_StructuralFoundation, "#78716c" }, // Stone gray - foundations
+            { BuiltInCategory.OST_Windows, "#22d3ee" },            // Cyan - windows
+            { BuiltInCategory.OST_Doors, "#fbbf24" },              // Amber - doors
+            { BuiltInCategory.OST_CurtainWallPanels, "#67e8f9" },  // Light cyan - curtain panels
+            { BuiltInCategory.OST_CurtainWallMullions, "#38bdf8" }, // Sky blue - curtain mullions/frames
+            { BuiltInCategory.OST_Stairs, "#fb923c" },             // Light orange - stairs
+            { BuiltInCategory.OST_Ramps, "#fdba74" },              // Peach - ramps
+            { BuiltInCategory.OST_GenericModel, "#e879f9" },       // Fuchsia - generic/web-created
+        };
 
         public class GeometrySnapshotDto
         {
@@ -75,12 +91,22 @@ namespace RevitSync.Addin
                 }
             }
 
+            // Categories for building massing visualization
             var categoriesToInclude = new[]
             {
-                BuiltInCategory.OST_Walls,
-                BuiltInCategory.OST_StructuralColumns,
-                BuiltInCategory.OST_Floors,
-                BuiltInCategory.OST_GenericModel,
+                BuiltInCategory.OST_Walls,              // Exterior & interior walls (incl. curtain wall hosts)
+                BuiltInCategory.OST_Roofs,              // Roof surfaces
+                BuiltInCategory.OST_Floors,             // Floor slabs
+                BuiltInCategory.OST_StructuralColumns,  // Vertical structural elements
+                BuiltInCategory.OST_StructuralFraming,  // Beams, braces, trusses
+                BuiltInCategory.OST_StructuralFoundation, // Footings, piles, slabs on grade
+                BuiltInCategory.OST_Windows,            // Window openings
+                BuiltInCategory.OST_Doors,              // Door openings
+                BuiltInCategory.OST_CurtainWallPanels,  // Glass/curtain wall panels
+                BuiltInCategory.OST_CurtainWallMullions, // Curtain wall frames/grids
+                BuiltInCategory.OST_Stairs,             // Stair elements
+                BuiltInCategory.OST_Ramps,              // Ramp elements
+                BuiltInCategory.OST_GenericModel,       // Generic/custom elements (includes web-created)
             };
 
             var primitives = new List<GeometryPrimitiveDto>();
@@ -102,6 +128,8 @@ namespace RevitSync.Addin
                         .OfCategory(bic)
                         .WhereElementIsNotElementType();
                 }
+
+                string categoryColor = CategoryColors.ContainsKey(bic) ? CategoryColors[bic] : "#e5e7eb";
 
                 foreach (var element in collector)
                 {
@@ -142,6 +170,7 @@ namespace RevitSync.Addin
                         Category = catName,
                         ElementId = element.Id.ToString(),
                         IsWebCreated = isWebCreated,
+                        Color = categoryColor,
                         CenterX = centerX,
                         CenterY = centerY,
                         CenterZ = centerZ,

@@ -116,6 +116,7 @@ export type GeometryPrimitive = {
   category: string;
   elementId?: string;
   isWebCreated?: boolean;
+  color?: string; // color per category
   centerX: number;
   centerY: number;
   centerZ: number;
@@ -132,14 +133,10 @@ export type GeometrySnapshot = {
   primitives: GeometryPrimitive[];
 };
 
-function colorForCategory(category: string, isWebCreated?: boolean): string {
-  if (isWebCreated) return "#a855f7";
-  const key = category.toLowerCase();
-  if (key.includes("wall")) return "#4ade80";
-  if (key.includes("column")) return "#60a5fa";
-  if (key.includes("floor")) return "#f97316";
-  if (key.includes("generic")) return "#a855f7";
-  return "#e5e7eb";
+function colorForPrimitive(primitive: GeometryPrimitive): string {
+  if (primitive.color) return primitive.color;           // From backend
+  if (primitive.isWebCreated) return "#e879f9";          // Fuchsia for pending
+  return "#e5e7eb";                                       // Gray fallback (shouldn't happen)
 }
 
 function threeToRevit(p: THREE.Vector3) {
@@ -158,7 +155,7 @@ type SelectableBoxProps = {
 
 function SelectableBox({ primitive, isSelected, isRevitSelected = false, isPending = false, onSelect, onMeshReady }: SelectableBoxProps) {
   const meshRef = useRef<THREE.Mesh>(null);
-  const color = colorForCategory(primitive.category, primitive.isWebCreated);
+  const color = colorForPrimitive(primitive);
   const position: [number, number, number] = [primitive.centerX, primitive.centerZ, -primitive.centerY];
   const scale: [number, number, number] = [primitive.sizeX, primitive.sizeZ, primitive.sizeY];
 
@@ -394,6 +391,25 @@ export function LiveGeometryView({ snapshot }: { snapshot: GeometrySnapshot }) {
         <div className="mt-2 text-[11px] text-slate-400">LMB: Orbit • MMB: Pan • Scroll: Zoom • RMB+Mouse: Look • RMB+WASD: Fly</div>
         {placementMode && <div className="mt-2 text-xs text-yellow-400 font-semibold">Click anywhere to place a box</div>}
         {isDragging && <div className="mt-2 text-xs text-green-400 font-semibold">Dragging... release to move</div>}
+        
+        {/* Category Legend */}
+        <div className="mt-2 pt-2 border-t border-slate-700">
+          <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Categories</div>
+          <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
+            <span><span className="inline-block w-2 h-2 rounded-sm mr-1" style={{backgroundColor: "#4ade80"}}></span>Walls</span>
+            <span><span className="inline-block w-2 h-2 rounded-sm mr-1" style={{backgroundColor: "#f97316"}}></span>Roofs</span>
+            <span><span className="inline-block w-2 h-2 rounded-sm mr-1" style={{backgroundColor: "#94a3b8"}}></span>Floors</span>
+            <span><span className="inline-block w-2 h-2 rounded-sm mr-1" style={{backgroundColor: "#60a5fa"}}></span>Columns</span>
+            <span><span className="inline-block w-2 h-2 rounded-sm mr-1" style={{backgroundColor: "#a78bfa"}}></span>Framing</span>
+            <span><span className="inline-block w-2 h-2 rounded-sm mr-1" style={{backgroundColor: "#78716c"}}></span>Foundation</span>
+            <span><span className="inline-block w-2 h-2 rounded-sm mr-1" style={{backgroundColor: "#22d3ee"}}></span>Windows</span>
+            <span><span className="inline-block w-2 h-2 rounded-sm mr-1" style={{backgroundColor: "#fbbf24"}}></span>Doors</span>
+            <span><span className="inline-block w-2 h-2 rounded-sm mr-1" style={{backgroundColor: "#67e8f9"}}></span>Panels</span>
+            <span><span className="inline-block w-2 h-2 rounded-sm mr-1" style={{backgroundColor: "#38bdf8"}}></span>Mullions</span>
+            <span><span className="inline-block w-2 h-2 rounded-sm mr-1" style={{backgroundColor: "#fb923c"}}></span>Stairs</span>
+            <span><span className="inline-block w-2 h-2 rounded-sm mr-1" style={{backgroundColor: "#e879f9"}}></span>Generic</span>
+          </div>
+        </div>
       </div>
 
       {/* Controls */}
