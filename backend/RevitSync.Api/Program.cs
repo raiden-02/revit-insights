@@ -9,9 +9,11 @@ builder.Services.AddCors(opt =>
 {
     opt.AddPolicy("frontend", p => p
         .WithOrigins(
-            "http://localhost:5173",
-            "http://127.0.0.1:5173",
-            "http://[::1]:5173"
+            "http://localhost:5173",     // Vite dev server
+            "http://127.0.0.1:5173",     // Vite dev server (IP)
+            "http://[::1]:5173",         // Vite dev server (IPv6)
+            "http://localhost:4173",     // Vite preview server
+            "http://127.0.0.1:4173"      // Vite preview server (IP)
         )
         .AllowAnyHeader()
         .AllowAnyMethod()
